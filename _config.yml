@@ -1,0 +1,8 @@
+exclude:
+  - analysis.ipynb
+  - cyo_track
+  - results
+  - tests
+  - Pipfile
+  - Pipfile.lock
+  - __pycache__
