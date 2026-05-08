@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Pipenv
+Pipfile.lock
+
+# Jupyter
+.ipynb_checkpoints/
+
+
+# IDE
+.vscode/
