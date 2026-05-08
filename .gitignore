@@ -13,3 +13,6 @@ Pipfile.lock
 
 # IDE
 .vscode/
+
+# Claude Code
+.claude/

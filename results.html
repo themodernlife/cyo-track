@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CYO Track Meet Results</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --red: #cf1d34;
+    --red-dark: #a01525;
+    --red-light: #f5e0e3;
+    --dark: #1a1a2e;
+    --gray-900: #212121;
+    --gray-700: #444;
+    --gray-500: #757575;
+    --gray-300: #e0e0e0;
+    --gray-100: #f5f5f5;
+    --white: #ffffff;
+    --gold: #c8902a;
+    --gold-light: #fdf3e3;
+    --shadow: 0 2px 12px rgba(0,0,0,0.10);
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Roboto', sans-serif; background: var(--gray-100); color: var(--gray-900); min-height: 100vh; }
+
+  /* ── Header ── */
+  header { background: var(--dark); color: var(--white); }
+  .header-top {
+    background: var(--red);
+    padding: 6px 32px;
+    font-family: 'Jost', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .header-main { display: flex; align-items: center; gap: 20px; padding: 20px 32px; }
+  .header-logo {
+    width: 56px; height: 56px;
+    background: var(--red); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Jost', sans-serif; font-weight: 800; font-size: 18px;
+    color: var(--white); flex-shrink: 0; letter-spacing: -1px;
+  }
+  .header-text h1 { font-family: 'Jost', sans-serif; font-weight: 700; font-size: 26px; color: var(--white); }
+  .header-text p { font-size: 13px; color: rgba(255,255,255,0.65); margin-top: 3px; font-weight: 300; }
+
+  /* ── Loading / Error ── */
+  #loading-overlay {
+    position: fixed; inset: 0; background: rgba(26,26,46,0.85);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 1000; color: var(--white); font-family: 'Jost', sans-serif;
+  }
+  .spinner {
+    width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.2);
+    border-top-color: var(--red); border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin-bottom: 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading-overlay p { font-size: 15px; opacity: 0.8; }
+  #error-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(26,26,46,0.92);
+    align-items: center; justify-content: center; z-index: 1000;
+  }
+  #error-overlay.show { display: flex; }
+  .error-box {
+    background: var(--white); border-radius: var(--radius); padding: 36px 40px;
+    max-width: 520px; text-align: center;
+  }
+  .error-box h2 { font-family: 'Jost', sans-serif; font-size: 20px; color: var(--red); margin-bottom: 12px; }
+  .error-box p { color: var(--gray-700); font-size: 14px; line-height: 1.6; margin-bottom: 10px; }
+  .error-box code { background: var(--gray-100); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+
+  /* ── Season bar ── */
+  .season-bar {
+    background: var(--dark); color: var(--white);
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 32px;
+    font-family: 'Jost', sans-serif; font-size: 13px;
+  }
+  .season-bar label { font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; font-size: 11px; opacity: 0.7; margin-right: 4px; }
+  .season-btn {
+    padding: 5px 16px; border-radius: 20px; border: 1.5px solid rgba(255,255,255,0.3);
+    background: transparent; color: var(--white); cursor: pointer;
+    font-family: 'Jost', sans-serif; font-size: 13px; font-weight: 600;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .season-btn:hover { background: rgba(255,255,255,0.1); }
+  .season-btn.active { background: var(--red); border-color: var(--red); }
+
+  /* ── Tabs ── */
+  .tabs-wrap {
+    background: var(--white); border-bottom: 2px solid var(--gray-300);
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .tabs { display: flex; max-width: 1100px; margin: 0 auto; padding: 0 24px; overflow-x: auto; }
+  .tab-btn {
+    padding: 16px 22px; border: none; background: none;
+    font-family: 'Jost', sans-serif; font-size: 14px; font-weight: 600;
+    color: var(--gray-500); cursor: pointer;
+    border-bottom: 3px solid transparent; margin-bottom: -2px;
+    white-space: nowrap; transition: color 0.2s, border-color 0.2s; letter-spacing: 0.02em;
+  }
+  .tab-btn:hover { color: var(--red); }
+  .tab-btn.active { color: var(--red); border-bottom-color: var(--red); }
+
+  /* ── Container ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── View header ── */
+  .view-header { margin-bottom: 28px; }
+  .view-header h2 { font-family: 'Jost', sans-serif; font-size: 24px; font-weight: 700; color: var(--dark); }
+  .view-header p { color: var(--gray-500); margin-top: 4px; font-size: 14px; }
+
+  /* ── Controls ── */
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;
+    background: var(--white); border-radius: var(--radius);
+    padding: 20px 24px; box-shadow: var(--shadow); margin-bottom: 28px;
+  }
+  .control-group { display: flex; flex-direction: column; gap: 6px; min-width: 160px; }
+  .control-group label {
+    font-family: 'Jost', sans-serif; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray-500);
+  }
+  select {
+    padding: 9px 14px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm);
+    font-family: 'Roboto', sans-serif; font-size: 14px; color: var(--gray-900);
+    background: var(--white); cursor: pointer; outline: none;
+    transition: border-color 0.2s; width: 100%;
+  }
+  select:focus { border-color: var(--red); }
+
+  /* ── Card ── */
+  .card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; margin-bottom: 20px; }
+  .card-title {
+    font-family: 'Jost', sans-serif; font-size: 15px; font-weight: 700;
+    color: var(--dark); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: var(--red-light); color: var(--red); letter-spacing: 0.04em; }
+  .badge.gold { background: var(--gold-light); color: var(--gold); }
+  .badge.blue { background: #e3eeff; color: #3b7dd8; }
+
+  /* ── Chart grid ── */
+  .chart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+  .chart-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px 20px 16px; }
+  .chart-card h3 { font-family: 'Jost', sans-serif; font-size: 14px; font-weight: 700; color: var(--dark); margin-bottom: 4px; }
+  .chart-card .chart-meta { font-size: 12px; color: var(--gray-500); margin-bottom: 14px; }
+  .chart-container { position: relative; height: 200px; }
+
+  /* ── Stats row ── */
+  .stats-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+  .stat-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 24px; flex: 1; min-width: 140px; border-left: 4px solid var(--red); }
+  .stat-card.gold-border { border-left-color: var(--gold); }
+  .stat-card.blue-border { border-left-color: #3b7dd8; }
+  .stat-card.green-border { border-left-color: #2e7d32; }
+  .stat-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gray-500); font-family: 'Jost', sans-serif; }
+  .stat-value { font-family: 'Jost', sans-serif; font-size: 24px; font-weight: 800; color: var(--dark); margin-top: 4px; line-height: 1; }
+  .stat-sub { font-size: 12px; color: var(--gray-500); margin-top: 4px; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { font-family: 'Jost', sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gray-500); padding: 10px 14px; text-align: left; border-bottom: 2px solid var(--gray-300); white-space: nowrap; }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--gray-100); }
+  .place-badge { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; font-weight: 700; font-size: 13px; font-family: 'Jost', sans-serif; }
+  .place-1 { background: #FFD700; color: #7a6000; }
+  .place-2 { background: #C0C0C0; color: #444; }
+  .place-3 { background: #CD7F32; color: var(--white); }
+  .place-other { background: var(--gray-100); color: var(--gray-700); }
+  .school-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; background: var(--gray-100); color: var(--gray-700); font-size: 12px; font-weight: 500; font-family: 'Jost', sans-serif; }
+  .school-tag.highlight { background: var(--red-light); color: var(--red); font-weight: 700; }
+  .score-cell { font-family: 'Roboto', sans-serif; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .pts-cell { color: var(--gold); font-weight: 700; font-family: 'Jost', sans-serif; }
+
+  /* ── Podium ── */
+  .podium { display: flex; align-items: flex-end; justify-content: center; gap: 12px; margin: 24px 0; }
+  .podium-place { flex: 1; max-width: 180px; text-align: center; }
+  .podium-name { font-family: 'Jost', sans-serif; font-weight: 700; font-size: 14px; color: var(--dark); margin-bottom: 4px; line-height: 1.2; }
+  .podium-school { font-size: 12px; color: var(--gray-500); margin-bottom: 8px; }
+  .podium-score { font-size: 20px; font-weight: 800; font-family: 'Jost', sans-serif; color: var(--dark); }
+  .podium-block { border-radius: var(--radius-sm) var(--radius-sm) 0 0; display: flex; align-items: center; justify-content: center; font-family: 'Jost', sans-serif; font-size: 28px; font-weight: 900; }
+  .p1 { background: linear-gradient(135deg,#FFD700,#FFA000); height: 80px; }
+  .p2 { background: linear-gradient(135deg,#E0E0E0,#9E9E9E); height: 60px; }
+  .p3 { background: linear-gradient(135deg,#FFCCBC,#CD7F32); height: 44px; }
+
+  .trend-up { color: #2e7d32; font-size: 13px; }
+  .trend-down { color: var(--red); font-size: 13px; }
+  .trend-flat { color: #888; font-size: 13px; }
+
+  .empty-state { text-align: center; padding: 60px 24px; color: var(--gray-500); }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state h3 { font-family: 'Jost', sans-serif; font-size: 18px; color: var(--gray-700); margin-bottom: 6px; }
+
+  @media (max-width: 600px) {
+    .header-main { padding: 16px; }
+    .header-text h1 { font-size: 20px; }
+    .season-bar { padding: 10px 16px; flex-wrap: wrap; }
+    .container { padding: 16px; }
+    .controls { padding: 16px; }
+    .chart-grid { grid-template-columns: 1fr; }
+    .tabs { padding: 0 8px; }
+    .tab-btn { padding: 14px 12px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <p>Loading meet data…</p>
+</div>
+
+<div id="error-overlay">
+  <div class="error-box">
+    <h2>Could not load meets.json</h2>
+    <p>This page needs to be served over HTTP. Run a local server in the project directory:</p>
+    <p><code>python3 -m http.server 8080</code></p>
+    <p>Then open <code>http://localhost:8080/results.html</code></p>
+  </div>
+</div>
+
+<header>
+  <div class="header-top">
+    <span>CYO New York Athletic League</span>
+    <span id="header-season-label">Loading…</span>
+  </div>
+  <div class="header-main">
+    <div class="header-logo">CYO</div>
+    <div class="header-text">
+      <h1>Track &amp; Field Meet Results</h1>
+      <p>Mount St. Michael Academy &nbsp;·&nbsp; Bronx, NY</p>
+    </div>
+  </div>
+</header>
+
+<div class="season-bar">
+  <label>Season</label>
+  <div id="season-btns" style="display:flex;gap:8px"></div>
+</div>
+
+<div class="tabs-wrap">
+  <div class="tabs">
+    <button class="tab-btn active" data-view="v1">Student Progress</button>
+    <button class="tab-btn" data-view="v2">Student vs Peers</button>
+    <button class="tab-btn" data-view="v3">School Comparison</button>
+    <button class="tab-btn" data-view="v4">Meet Results</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="view active" id="v1">
+    <div class="view-header">
+      <h2>Student Progress by Event</h2>
+      <p>Select a student to see how their scores changed across meets for each event.</p>
+    </div>
+    <div class="controls">
+      <div class="control-group" style="min-width:200px">
+        <label>School</label>
+        <select id="v1-school"><option value="">All Schools</option></select>
+      </div>
+      <div class="control-group" style="min-width:280px">
+        <label>Student</label>
+        <select id="v1-student"><option value="">— Select student —</option></select>
+      </div>
+    </div>
+    <div id="v1-stats" class="stats-row"></div>
+    <div id="v1-charts" class="chart-grid"></div>
+    <div id="v1-empty" class="empty-state">
+      <div class="icon">🏃</div>
+      <h3>Select a student above</h3>
+      <p>Choose a student to view their performance history across meets.</p>
+    </div>
+  </div>
+
+  <div class="view" id="v2">
+    <div class="view-header">
+      <h2>Student vs Peers</h2>
+      <p>Compare a student's performance to their school teammates and grade-level peers.</p>
+    </div>
+    <div class="controls">
+      <div class="control-group">
+        <label>School</label>
+        <select id="v2-school"><option value="">All Schools</option></select>
+      </div>
+      <div class="control-group" style="min-width:260px">
+        <label>Student</label>
+        <select id="v2-student"><option value="">— Select student —</option></select>
+      </div>
+      <div class="control-group">
+        <label>Event</label>
+        <select id="v2-event"><option value="">— Select event —</option></select>
+      </div>
+    </div>
+    <div id="v2-content">
+      <div class="empty-state"><div class="icon">📊</div><h3>Select a student and event</h3></div>
+    </div>
+  </div>
+
+  <div class="view" id="v3">
+    <div class="view-header">
+      <h2>School Comparison</h2>
+      <p>See how schools rank against each other for any event and grade level.</p>
+    </div>
+    <div class="controls">
+      <div class="control-group">
+        <label>Event</label>
+        <select id="v3-event"><option value="">— Select event —</option></select>
+      </div>
+      <div class="control-group">
+        <label>Age Group</label>
+        <select id="v3-agegroup">
+          <option value="">All</option>
+          <option value="2&U">2nd &amp; Under</option>
+          <option value="3-4">3rd–4th Grade</option>
+          <option value="5-6">5th–6th Grade</option>
+          <option value="7-8">7th–8th Grade</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Gender</label>
+        <select id="v3-gender">
+          <option value="">Both</option>
+          <option value="Girls">Girls</option>
+          <option value="Boys">Boys</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Metric</label>
+        <select id="v3-metric">
+          <option value="best">Best Score</option>
+          <option value="avg">Average Score</option>
+          <option value="points">Total Points</option>
+        </select>
+      </div>
+    </div>
+    <div id="v3-content">
+      <div class="empty-state"><div class="icon">🏫</div><h3>Select an event to compare schools</h3></div>
+    </div>
+  </div>
+
+  <div class="view" id="v4">
+    <div class="view-header">
+      <h2>Meet Results</h2>
+      <p>Browse full results for each meet and event, with podium highlights.</p>
+    </div>
+    <div class="controls">
+      <div class="control-group">
+        <label>Meet</label>
+        <select id="v4-meet"><option value="">— Select meet —</option></select>
+      </div>
+      <div class="control-group">
+        <label>Event</label>
+        <select id="v4-event"><option value="">— Select event —</option></select>
+      </div>
+      <div class="control-group">
+        <label>Age Group</label>
+        <select id="v4-agegroup">
+          <option value="">All</option>
+          <option value="2&U">2nd &amp; Under</option>
+          <option value="3-4">3rd–4th Grade</option>
+          <option value="5-6">5th–6th Grade</option>
+          <option value="7-8">7th–8th Grade</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Gender</label>
+        <select id="v4-gender">
+          <option value="">Both</option>
+          <option value="Girls">Girls</option>
+          <option value="Boys">Boys</option>
+        </select>
+      </div>
+    </div>
+    <div id="v4-content">
+      <div class="empty-state"><div class="icon">🏅</div><h3>Select a meet and event</h3></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let ALL_DATA = [];
+let SEASON = '';
+let SEASONS = [];
+let MEETS_IN_SEASON = [];
+const charts = {};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const isTimeEvent = e => /Meter/.test(e);
+
+function fmtTime(sec) {
+  if (sec == null) return '—';
+  if (sec >= 60) {
+    const m = Math.floor(sec / 60);
+    const s = (sec - m * 60).toFixed(2).padStart(5, '0');
+    return `${m}:${s}`;
+  }
+  return sec.toFixed(2);
+}
+
+function fmtFeet(f) {
+  if (f == null) return '—';
+  const feet = Math.floor(f);
+  const inches = Math.round((f - feet) * 12 * 100) / 100;
+  return `${feet}' ${inches.toFixed(2)}"`;
+}
+
+function numericScore(r) {
+  if (r.score_seconds != null) return r.score_seconds;
+  if (r.score_feet != null) return r.score_feet;
+  return null;
+}
+
+function fmtVal(v, isTimed) {
+  if (v == null) return '—';
+  return isTimed ? fmtTime(v) : fmtFeet(v);
+}
+
+function avg(arr) {
+  if (!arr.length) return null;
+  return arr.reduce((s, v) => s + v, 0) / arr.length;
+}
+
+function parsePlacement(p) {
+  const n = parseInt(p);
+  return isNaN(n) ? 99 : n;
+}
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function seasonData() {
+  return SEASON === 'all' ? ALL_DATA : ALL_DATA.filter(d => d.season === SEASON);
+}
+
+function sortedMeets(data) {
+  // Use "YYYY meet_label" as key when combining seasons so duplicates don't collapse.
+  const combined = SEASON === 'all';
+  const seen = new Map();
+  data.forEach(d => {
+    const key = combined ? `${d.season} ${d.meet_label}` : d.meet_label;
+    if (!seen.has(key)) seen.set(key, d.meet_date);
+  });
+  const toTs = s => { const [m,d,y] = s.split('/'); return new Date(+y, +m-1, +d).getTime(); };
+  return [...seen.entries()]
+    .sort(([, a], [, b]) => toTs(a) - toTs(b))
+    .map(([label, date]) => ({ label, date }));
+}
+
+const CHART_COLORS = ['#cf1d34','#3b7dd8','#2e7d32','#c8902a','#7b1fa2','#00796b','#e65100','#37474f'];
+const RED = '#cf1d34', GOLD = '#c8902a', BLUE = '#3b7dd8';
+const STEPHEN_SCHOOLS = new Set(['Stephen', 'ST STEPHEN']);
+
+function isStephen(school) { return STEPHEN_SCHOOLS.has(school); }
+function meetKey(r) { return SEASON === 'all' ? `${r.season} ${r.meet_label}` : r.meet_label; }
+
+// ── Season selector ───────────────────────────────────────────────────────────
+function buildSeasonButtons() {
+  const wrap = document.getElementById('season-btns');
+  wrap.innerHTML = '';
+  const options = [...SEASONS, 'all'];
+  options.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'season-btn' + (s === SEASON ? ' active' : '');
+    btn.textContent = s === 'all' ? 'All Seasons (Combined)' : s + ' Season';
+    btn.addEventListener('click', () => {
+      if (SEASON === s) return;
+      SEASON = s;
+      document.querySelectorAll('.season-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      refreshAllViews();
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+function updateSeasonLabel() {
+  const label = SEASON === 'all'
+    ? `All Seasons · ${MEETS_IN_SEASON.length} Meets`
+    : `${SEASON} Season · ${MEETS_IN_SEASON.length} Meet${MEETS_IN_SEASON.length !== 1 ? 's' : ''}`;
+  document.getElementById('header-season-label').textContent = label;
+}
+
+// ── Select population helpers ─────────────────────────────────────────────────
+function populateSchoolSelect(selId, data) {
+  const sel = document.getElementById(selId);
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">All Schools</option>';
+  [...new Set(data.map(d => d.school))].sort().forEach(s => {
+    const o = document.createElement('option');
+    o.value = s; o.textContent = s;
+    sel.appendChild(o);
+  });
+  if (prev) sel.value = prev;
+}
+
+function populateStudentSelect(selId, data, school) {
+  const sel = document.getElementById(selId);
+  const prev = sel.value;
+  let filtered = school ? data.filter(d => d.school === school) : data;
+  const names = [...new Set(filtered.map(d => d.name))].sort();
+  sel.innerHTML = '<option value="">— Select student —</option>';
+  names.forEach(n => {
+    const sch = data.find(d => d.name === n)?.school || '';
+    const o = document.createElement('option');
+    o.value = n; o.textContent = school ? n : `${n} (${sch})`;
+    sel.appendChild(o);
+  });
+  if (names.includes(prev)) sel.value = prev;
+}
+
+function populateEventSelect(selId, data) {
+  const sel = document.getElementById(selId);
+  const prev = sel.value;
+  const evts = [...new Set(data.map(d => d.event_type))].sort();
+  sel.innerHTML = '<option value="">— Select event —</option>';
+  evts.forEach(e => {
+    const o = document.createElement('option');
+    o.value = e; o.textContent = e;
+    sel.appendChild(o);
+  });
+  if (evts.includes(prev)) sel.value = prev;
+}
+
+function populateMeetSelect() {
+  const sel = document.getElementById('v4-meet');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— Select meet —</option>';
+  MEETS_IN_SEASON.forEach(m => {
+    const o = document.createElement('option');
+    o.value = m.label; o.textContent = `${m.label} (${m.date})`;
+    sel.appendChild(o);
+  });
+  if (MEETS_IN_SEASON.some(m => m.label === prev)) sel.value = prev;
+}
+
+// ── View 1: Student Progress ──────────────────────────────────────────────────
+function renderV1() {
+  const data = seasonData();
+  const name = document.getElementById('v1-student').value;
+  const chartsEl = document.getElementById('v1-charts');
+  const emptyEl  = document.getElementById('v1-empty');
+  const statsEl  = document.getElementById('v1-stats');
+
+  Object.keys(charts).filter(k => k.startsWith('v1c')).forEach(k => destroyChart(k));
+  chartsEl.innerHTML = '';
+  statsEl.innerHTML  = '';
+
+  if (!name) { emptyEl.style.display = ''; return; }
+  emptyEl.style.display = 'none';
+
+  const records = data.filter(d => d.name === name);
+  if (!records.length) { emptyEl.style.display = ''; return; }
+
+  const { school, gender, age_group } = records[0];
+  const totalPoints   = records.reduce((s, r) => s + (r.points || 0), 0);
+  const totalEvents   = [...new Set(records.map(r => r.event_type))].length;
+  const meetsAppeared = [...new Set(records.map(r => r.meet_label))].length;
+  const topFinishes   = records.filter(r => parsePlacement(r.placement) <= 3).length;
+
+  statsEl.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Total Points</div>
+      <div class="stat-value">${totalPoints.toFixed(1)}</div>
+      <div class="stat-sub">across ${meetsAppeared} meet${meetsAppeared !== 1 ? 's' : ''}</div>
+    </div>
+    <div class="stat-card gold-border">
+      <div class="stat-label">Events Entered</div>
+      <div class="stat-value">${totalEvents}</div>
+      <div class="stat-sub">unique event types</div>
+    </div>
+    <div class="stat-card blue-border">
+      <div class="stat-label">Top-3 Finishes</div>
+      <div class="stat-value">${topFinishes}</div>
+      <div class="stat-sub">podium appearances</div>
+    </div>
+    <div class="stat-card green-border">
+      <div class="stat-label">School / Group</div>
+      <div class="stat-value" style="font-size:16px">${school}</div>
+      <div class="stat-sub">${gender} · ${age_group}</div>
+    </div>
+  `;
+
+  const eventTypes  = [...new Set(records.map(r => r.event_type))].sort();
+  const meetLabels  = MEETS_IN_SEASON.map(m => m.label);
+
+  eventTypes.forEach((evt, i) => {
+    const evtRecs = records.filter(r => r.event_type === evt);
+    const isTimed = isTimeEvent(evt);
+
+    const dataPoints = meetLabels.map(ml => {
+      const meetRecs = evtRecs.filter(r => meetKey(r) === ml && numericScore(r) != null);
+      if (!meetRecs.length) return null;
+      const best = isTimed
+        ? meetRecs.reduce((b, r) => !b || r.score_seconds < b.score_seconds ? r : b, null)
+        : meetRecs.reduce((b, r) => !b || r.score_feet > b.score_feet ? r : b, null);
+      return best ? { val: numericScore(best), raw: best.score_raw, pl: parsePlacement(best.placement), pts: best.points } : null;
+    });
+
+    const validPts = dataPoints.filter(Boolean);
+    let trendHTML = '';
+    if (validPts.length >= 2) {
+      const diff = isTimed
+        ? validPts[0].val - validPts[validPts.length-1].val
+        : validPts[validPts.length-1].val - validPts[0].val;
+      trendHTML = diff > 0.01
+        ? '<span class="trend-up"> ▲ improving</span>'
+        : diff < -0.01
+          ? '<span class="trend-down"> ▼ declining</span>'
+          : '<span class="trend-flat"> → stable</span>';
+    }
+
+    const color = CHART_COLORS[i % CHART_COLORS.length];
+    const cid = `v1c${i}`;
+    const el = document.createElement('div');
+    el.className = 'chart-card';
+    el.innerHTML = `
+      <h3>${evt}${trendHTML}</h3>
+      <div class="chart-meta">${isTimed ? '↓ lower is faster' : '↑ higher is farther'} · ${validPts.length} appearance${validPts.length !== 1 ? 's' : ''}</div>
+      <div class="chart-container"><canvas id="${cid}"></canvas></div>
+    `;
+    chartsEl.appendChild(el);
+
+    const tickFmt  = v => {
+      if (v == null) return '';
+      return isTimed ? fmtTime(v) : fmtFeet(v);
+    };
+
+    charts[cid] = new Chart(document.getElementById(cid), {
+      type: 'line',
+      data: {
+        labels: meetLabels,
+        datasets: [{
+          data: dataPoints.map(d => d ? d.val : null),
+          borderColor: color, backgroundColor: color + '22', borderWidth: 3,
+          pointRadius: 6, pointHoverRadius: 8, tension: 0.3, spanGaps: false, fill: true,
+          pointBackgroundColor: dataPoints.map(d => d ? (d.pl <= 3 ? GOLD : color) : 'transparent'),
+          pointBorderColor: color,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const d = dataPoints[ctx.dataIndex];
+                if (!d) return 'Did not compete';
+                return `${d.raw}${d.pl <= 10 ? ` · Place #${d.pl}` : ''}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { grid: { color: '#f0f0f0' }, ticks: { font: { family: 'Jost', size: 12 } } },
+          y: { grid: { color: '#f0f0f0' }, ticks: { font: { family: 'Roboto', size: 11 }, callback: tickFmt } },
+        },
+      },
+    });
+  });
+}
+
+// ── View 2: Student vs Peers ──────────────────────────────────────────────────
+function populateV2Events(name) {
+  const data = seasonData();
+  const sel  = document.getElementById('v2-event');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— Select event —</option>';
+  if (!name) return;
+  const evts = [...new Set(data.filter(d => d.name === name).map(d => d.event_type))].sort();
+  evts.forEach(e => {
+    const o = document.createElement('option');
+    o.value = e; o.textContent = e;
+    sel.appendChild(o);
+  });
+  if (evts.includes(prev)) sel.value = prev;
+}
+
+function renderV2() {
+  const data    = seasonData();
+  const name    = document.getElementById('v2-student').value;
+  const evt     = document.getElementById('v2-event').value;
+  const content = document.getElementById('v2-content');
+
+  if (!name || !evt) {
+    content.innerHTML = `<div class="empty-state"><div class="icon">📊</div><h3>Select a student and event</h3></div>`;
+    return;
+  }
+
+  const studentRecs = data.filter(d => d.name === name && d.event_type === evt);
+  if (!studentRecs.length) {
+    content.innerHTML = `<div class="empty-state"><div class="icon">📊</div><h3>No data for this combination</h3></div>`;
+    return;
+  }
+
+  const { school, gender, age_group } = studentRecs[0];
+  const isTimed = isTimeEvent(evt);
+
+  const schoolPeers = data.filter(d => d.school === school && d.gender === gender && d.event_type === evt && d.name !== name);
+  const gradePeers  = data.filter(d => d.age_group === age_group && d.gender === gender && d.event_type === evt && d.name !== name);
+
+  function bestPerAthlete(recs) {
+    const byName = {};
+    recs.forEach(r => {
+      const v = numericScore(r);
+      if (v == null) return;
+      if (byName[r.name] == null || (isTimed ? v < byName[r.name] : v > byName[r.name])) byName[r.name] = v;
+    });
+    return Object.values(byName);
+  }
+
+  const allVals   = studentRecs.map(numericScore).filter(v => v != null);
+  const sbv       = allVals.length ? (isTimed ? Math.min(...allVals) : Math.max(...allVals)) : null;
+  const schoolVals = bestPerAthlete(schoolPeers);
+  const gradeVals  = bestPerAthlete(gradePeers);
+  const schoolAvg  = avg(schoolVals);
+  const gradeAvg   = avg(gradeVals);
+
+  const meetLabels = MEETS_IN_SEASON.map(m => m.label);
+  const meetData   = meetLabels.map(ml => {
+    const recs = studentRecs.filter(r => meetKey(r) === ml && numericScore(r) != null);
+    if (!recs.length) return null;
+    return isTimed
+      ? recs.reduce((b, r) => !b || r.score_seconds < b.score_seconds ? r : b, null)
+      : recs.reduce((b, r) => !b || r.score_feet > b.score_feet ? r : b, null);
+  });
+
+  let pct = null;
+  if (sbv != null && gradeVals.length) {
+    const better = isTimed ? gradeVals.filter(v => v > sbv).length : gradeVals.filter(v => v < sbv).length;
+    pct = Math.round((better / gradeVals.length) * 100);
+  }
+
+  destroyChart('v2-chart');
+
+  content.innerHTML = `
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Personal Best</div>
+        <div class="stat-value" style="font-size:22px">${fmtVal(sbv, isTimed)}</div>
+        <div class="stat-sub">${evt}</div>
+      </div>
+      <div class="stat-card gold-border">
+        <div class="stat-label">School Avg (${school})</div>
+        <div class="stat-value" style="font-size:22px">${fmtVal(schoolAvg, isTimed)}</div>
+        <div class="stat-sub">${schoolVals.length} peer${schoolVals.length !== 1 ? 's' : ''} · ${gender}</div>
+      </div>
+      <div class="stat-card blue-border">
+        <div class="stat-label">Grade Avg (${age_group})</div>
+        <div class="stat-value" style="font-size:22px">${fmtVal(gradeAvg, isTimed)}</div>
+        <div class="stat-sub">${gradeVals.length} athletes · all schools</div>
+      </div>
+      ${pct != null ? `<div class="stat-card green-border">
+        <div class="stat-label">Grade Percentile</div>
+        <div class="stat-value">${pct}th</div>
+        <div class="stat-sub">better than ${pct}% of ${age_group} ${gender.toLowerCase()}</div>
+      </div>` : ''}
+    </div>
+    <div class="card">
+      <div class="card-title">Score Over Time vs Peer Averages</div>
+      <div class="chart-container" style="height:260px"><canvas id="v2-chart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Meet-by-Meet Results</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Meet</th><th>Score</th><th>Place</th><th>Points</th></tr></thead>
+        <tbody>${meetData.map((r, i) => {
+          if (!r) return `<tr><td>${meetLabels[i]}</td><td colspan="3" style="color:#9e9e9e">Did not compete</td></tr>`;
+          const pl = parsePlacement(r.placement);
+          const cls = pl === 1 ? 'place-1' : pl === 2 ? 'place-2' : pl === 3 ? 'place-3' : 'place-other';
+          return `<tr>
+            <td><strong>${meetLabels[i]}</strong></td>
+            <td class="score-cell">${r.score_raw}</td>
+            <td><span class="place-badge ${cls}">${pl <= 99 ? pl : '—'}</span></td>
+            <td class="pts-cell">${r.points || '—'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>
+    </div>
+  `;
+
+  const tickFmtV2 = v => {
+    if (v == null) return '';
+    return isTimed ? fmtTime(v) : fmtFeet(v);
+  };
+
+  charts['v2-chart'] = new Chart(document.getElementById('v2-chart'), {
+    type: 'line',
+    data: {
+      labels: meetLabels,
+      datasets: [
+        {
+          label: name,
+          data: meetData.map(r => r ? numericScore(r) : null),
+          borderColor: RED, backgroundColor: RED+'22', borderWidth: 3,
+          pointRadius: 7, pointBackgroundColor: RED, tension: 0.3, spanGaps: false, fill: false,
+        },
+        {
+          label: `${school} Avg`,
+          data: meetLabels.map(() => schoolAvg),
+          borderColor: GOLD, borderDash: [6,3], borderWidth: 2, pointRadius: 0, fill: false,
+        },
+        {
+          label: `${age_group} Grade Avg`,
+          data: meetLabels.map(() => gradeAvg),
+          borderColor: BLUE, borderDash: [4,4], borderWidth: 2, pointRadius: 0, fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { family: 'Jost', size: 12 }, usePointStyle: true } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const v = ctx.raw;
+              if (v == null) return `${ctx.dataset.label}: Did not compete`;
+              return `${ctx.dataset.label}: ${fmtVal(v, isTimed)}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: { grid: { color: '#f0f0f0' }, ticks: { font: { family: 'Jost' } } },
+        y: { grid: { color: '#f0f0f0' }, ticks: { font: { family: 'Roboto', size: 11 }, callback: tickFmtV2 } },
+      },
+    },
+  });
+}
+
+// ── View 3: School Comparison ─────────────────────────────────────────────────
+function renderV3() {
+  const data     = seasonData();
+  const evt      = document.getElementById('v3-event').value;
+  const ageGroup = document.getElementById('v3-agegroup').value;
+  const gender   = document.getElementById('v3-gender').value;
+  const metric   = document.getElementById('v3-metric').value;
+  const content  = document.getElementById('v3-content');
+
+  if (!evt) {
+    content.innerHTML = `<div class="empty-state"><div class="icon">🏫</div><h3>Select an event to compare schools</h3></div>`;
+    return;
+  }
+
+  let filtered = data.filter(d => d.event_type === evt);
+  if (ageGroup) filtered = filtered.filter(d => d.age_group === ageGroup);
+  if (gender)   filtered = filtered.filter(d => d.gender === gender);
+
+  if (!filtered.length) {
+    content.innerHTML = `<div class="empty-state"><div class="icon">🏫</div><h3>No data for these filters</h3></div>`;
+    return;
+  }
+
+  const isTimed = isTimeEvent(evt);
+  const bySchool = {};
+  filtered.forEach(r => { (bySchool[r.school] = bySchool[r.school] || []).push(r); });
+
+  const rows = Object.entries(bySchool).map(([school, recs]) => {
+    const vals = recs.map(numericScore).filter(v => v != null);
+    if (!vals.length) return null;
+    let val;
+    if (metric === 'best') val = isTimed ? Math.min(...vals) : Math.max(...vals);
+    else if (metric === 'avg') val = avg(vals);
+    else val = recs.reduce((s, r) => s + (r.points || 0), 0);
+    return { school, val, count: [...new Set(recs.map(r => r.name))].length };
+  }).filter(Boolean);
+
+  rows.sort((a, b) => metric === 'points' || !isTimed ? b.val - a.val : a.val - b.val);
+
+  const fmtMetric = v => metric === 'points' ? v.toFixed(1)+' pts' : fmtVal(v, isTimed);
+  const metricLabels = { best: 'Best Score', avg: 'Avg Score', points: 'Total Points' };
+  destroyChart('v3-chart');
+
+  const labels      = rows.map(r => r.school);
+  const displayVals = rows.map(r => r.val);
+  const bgColors    = labels.map(s => (isStephen(s) ? RED : BLUE) + 'cc');
+
+  content.innerHTML = `
+    <div class="card">
+      <div class="card-title">
+        ${evt}
+        ${ageGroup ? `<span class="badge">${ageGroup}</span>` : ''}
+        ${gender   ? `<span class="badge">${gender}</span>`   : ''}
+        <span class="badge gold">${metricLabels[metric]}</span>
+      </div>
+      <div class="chart-container" style="height:${Math.max(240, labels.length * 36)}px">
+        <canvas id="v3-chart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">School Rankings</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Rank</th><th>School</th><th>Athletes</th><th>${metricLabels[metric]}</th></tr></thead>
+        <tbody>${rows.map((r, i) => {
+          const cls = i === 0 ? 'place-1' : i === 1 ? 'place-2' : i === 2 ? 'place-3' : 'place-other';
+          return `<tr>
+            <td><span class="place-badge ${cls}">${i+1}</span></td>
+            <td><span class="school-tag ${isStephen(r.school)?'highlight':''}">${r.school}</span></td>
+            <td>${r.count}</td>
+            <td class="score-cell">${fmtMetric(r.val)}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>
+    </div>
+  `;
+
+  const tickFmt = v => {
+    if (metric === 'points') return v.toFixed(0);
+    return isTimed ? fmtTime(v) : fmtFeet(v);
+  };
+
+  charts['v3-chart'] = new Chart(document.getElementById('v3-chart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: displayVals, backgroundColor: bgColors,
+        borderColor: bgColors.map(c => c.slice(0,-2)), borderWidth: 2, borderRadius: 4,
+      }],
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${fmtMetric(rows[ctx.dataIndex].val)}` } },
+      },
+      scales: {
+        x: { reverse: isTimed && metric !== 'points', grid: { color: '#f0f0f0' }, ticks: { font: { family: 'Roboto', size: 11 }, callback: tickFmt } },
+        y: { grid: { display: false }, ticks: { font: { family: 'Jost', size: 12 } } },
+      },
+    },
+  });
+}
+
+// ── View 4: Meet Results ──────────────────────────────────────────────────────
+function renderV4() {
+  const data     = seasonData();
+  const meetLbl  = document.getElementById('v4-meet').value;
+  const evt      = document.getElementById('v4-event').value;
+  const ageGroup = document.getElementById('v4-agegroup').value;
+  const gender   = document.getElementById('v4-gender').value;
+  const content  = document.getElementById('v4-content');
+
+  if (!meetLbl || !evt) {
+    content.innerHTML = `<div class="empty-state"><div class="icon">🏅</div><h3>Select a meet and event</h3></div>`;
+    return;
+  }
+
+  let filtered = data.filter(d => d.meet_label === meetLbl && d.event_type === evt);
+  if (ageGroup) filtered = filtered.filter(d => d.age_group === ageGroup);
+  if (gender)   filtered = filtered.filter(d => d.gender === gender);
+
+  if (!filtered.length) {
+    content.innerHTML = `<div class="empty-state"><div class="icon">🏅</div><h3>No results for these filters</h3></div>`;
+    return;
+  }
+
+  filtered.sort((a, b) => parsePlacement(a.placement) - parsePlacement(b.placement));
+
+  const groups = {};
+  filtered.forEach(r => { const k = `${r.gender} ${r.age_group}`; (groups[k] = groups[k] || []).push(r); });
+
+  const meetInfo = MEETS_IN_SEASON.find(m => m.label === meetLbl);
+  const dateStr  = meetInfo ? ` · ${meetInfo.date}` : '';
+
+  const html = Object.entries(groups).sort(([a],[b]) => a.localeCompare(b)).map(([groupName, recs]) => {
+    const top3 = recs.slice(0, 3);
+    const rest  = recs.slice(3);
+    return `
+      <div class="card">
+        <div class="card-title">${groupName} · ${evt} <span class="badge">${meetLbl}${dateStr}</span></div>
+        ${top3.length >= 2 ? `<div class="podium">
+          <div class="podium-place">
+            <div class="podium-name">${top3[1].name}</div>
+            <div class="podium-school">${top3[1].school}</div>
+            <div class="podium-score">${top3[1].score_raw}</div>
+            <div class="podium-block p2">2</div>
+          </div>
+          <div class="podium-place">
+            <div class="podium-name">${top3[0].name}</div>
+            <div class="podium-school">${top3[0].school}</div>
+            <div class="podium-score">${top3[0].score_raw}</div>
+            <div class="podium-block p1">1</div>
+          </div>
+          ${top3[2] ? `<div class="podium-place">
+            <div class="podium-name">${top3[2].name}</div>
+            <div class="podium-school">${top3[2].school}</div>
+            <div class="podium-score">${top3[2].score_raw}</div>
+            <div class="podium-block p3">3</div>
+          </div>` : ''}
+        </div>` : ''}
+        ${rest.length ? `<div class="table-wrap"><table>
+          <thead><tr><th>Place</th><th>Athlete</th><th>School</th><th>Score</th><th>Pts</th></tr></thead>
+          <tbody>${rest.map(r => {
+            const pl  = parsePlacement(r.placement);
+            const cls = pl === 1 ? 'place-1' : pl === 2 ? 'place-2' : pl === 3 ? 'place-3' : 'place-other';
+            return `<tr>
+              <td><span class="place-badge ${cls}">${pl <= 99 ? pl : '—'}</span></td>
+              <td><strong>${r.name}</strong></td>
+              <td><span class="school-tag ${isStephen(r.school)?'highlight':''}">${r.school}</span></td>
+              <td class="score-cell">${r.score_raw}</td>
+              <td class="pts-cell">${r.points || '—'}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>` : ''}
+      </div>`;
+  }).join('');
+
+  content.innerHTML = html;
+}
+
+// ── Refresh everything for current season ─────────────────────────────────────
+function refreshAllViews() {
+  const data = seasonData();
+  MEETS_IN_SEASON = sortedMeets(data);
+  updateSeasonLabel();
+
+  populateSchoolSelect('v1-school', data);
+  populateSchoolSelect('v2-school', data);
+  populateStudentSelect('v1-student', data, document.getElementById('v1-school').value);
+  populateStudentSelect('v2-student', data, document.getElementById('v2-school').value);
+  populateV2Events(document.getElementById('v2-student').value);
+  populateEventSelect('v3-event', data);
+  populateEventSelect('v4-event', data);
+  populateMeetSelect();
+
+  const active = document.querySelector('.view.active')?.id;
+  if (active === 'v1') renderV1();
+  else if (active === 'v2') renderV2();
+  else if (active === 'v3') renderV3();
+  else if (active === 'v4') renderV4();
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const resp = await fetch('meets.json');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    ALL_DATA = await resp.json();
+  } catch {
+    document.getElementById('loading-overlay').style.display = 'none';
+    document.getElementById('error-overlay').classList.add('show');
+    return;
+  }
+
+  document.getElementById('loading-overlay').style.display = 'none';
+
+  SEASONS = [...new Set(ALL_DATA.map(d => d.season))].sort().reverse();
+  SEASON  = SEASONS[0];
+  buildSeasonButtons();
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.view).classList.add('active');
+    });
+  });
+
+  document.getElementById('v1-school').addEventListener('change', e => {
+    populateStudentSelect('v1-student', seasonData(), e.target.value);
+    renderV1();
+  });
+  document.getElementById('v1-student').addEventListener('change', renderV1);
+
+  document.getElementById('v2-school').addEventListener('change', e => {
+    populateStudentSelect('v2-student', seasonData(), e.target.value);
+    renderV2();
+  });
+  document.getElementById('v2-student').addEventListener('change', e => {
+    populateV2Events(e.target.value);
+    renderV2();
+  });
+  document.getElementById('v2-event').addEventListener('change', renderV2);
+
+  ['v3-event','v3-agegroup','v3-gender','v3-metric'].forEach(id =>
+    document.getElementById(id).addEventListener('change', renderV3));
+
+  ['v4-meet','v4-event','v4-agegroup','v4-gender'].forEach(id =>
+    document.getElementById(id).addEventListener('change', renderV4));
+
+  refreshAllViews();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

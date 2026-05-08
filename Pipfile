@@ -7,8 +7,10 @@ name = "pypi"
 jupyterlab = "*"
 pandas = "*"
 plotly = "*"
+typer = "*"
 
 [dev-packages]
+pytest = "*"
 
 [requires]
 python_version = "3.13"
