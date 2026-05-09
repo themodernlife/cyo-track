@@ -259,6 +259,7 @@
     <button class="tab-btn" data-view="v2">Student vs Peers</button>
     <button class="tab-btn" data-view="v3">School Comparison</button>
     <button class="tab-btn" data-view="v4">Meet Results</button>
+    <button class="tab-btn" data-view="v5">Podium History</button>
   </div>
 </div>
 
@@ -389,6 +390,27 @@
     </div>
     <div id="v4-content">
       <div class="empty-state"><div class="icon">🏅</div><h3>Select a meet and event</h3></div>
+    </div>
+  </div>
+
+  <div class="view" id="v5">
+    <div class="view-header">
+      <h2>Podium History</h2>
+      <p>See every 1st, 2nd, and 3rd place finish for a student across all meets.</p>
+    </div>
+    <div class="controls">
+      <div class="control-group" style="min-width:200px">
+        <label>School</label>
+        <select id="v5-school"><option value="">All Schools</option></select>
+      </div>
+      <div class="control-group" style="min-width:280px">
+        <label>Student</label>
+        <select id="v5-student"><option value="">— Select student —</option></select>
+      </div>
+    </div>
+    <div id="v5-stats" class="stats-row"></div>
+    <div id="v5-content">
+      <div class="empty-state"><div class="icon">🏆</div><h3>Select a student above</h3><p>Choose a student to view their podium finishes across all meets.</p></div>
     </div>
   </div>
 
@@ -1029,6 +1051,89 @@ function renderV4() {
   content.innerHTML = html;
 }
 
+// ── View 5: Podium History ────────────────────────────────────────────────────
+function renderV5() {
+  const data    = seasonData();
+  const name    = document.getElementById('v5-student').value;
+  const statsEl = document.getElementById('v5-stats');
+  const content = document.getElementById('v5-content');
+
+  statsEl.innerHTML = '';
+
+  if (!name) {
+    content.innerHTML = `<div class="empty-state"><div class="icon">🏆</div><h3>Select a student above</h3><p>Choose a student to view their podium finishes across all meets.</p></div>`;
+    return;
+  }
+
+  const podiums = data
+    .filter(d => d.name === name && parsePlacement(d.placement) <= 3)
+    .sort((a, b) => {
+      const toTs = s => { const [m,d,y] = s.split('/'); return new Date(+y,+m-1,+d).getTime(); };
+      const tsDiff = toTs(a.meet_date) - toTs(b.meet_date);
+      if (tsDiff !== 0) return tsDiff;
+      return parsePlacement(a.placement) - parsePlacement(b.placement);
+    });
+
+  const gold   = podiums.filter(r => parsePlacement(r.placement) === 1).length;
+  const silver = podiums.filter(r => parsePlacement(r.placement) === 2).length;
+  const bronze = podiums.filter(r => parsePlacement(r.placement) === 3).length;
+
+  if (!podiums.length) {
+    statsEl.innerHTML = '';
+    content.innerHTML = `<div class="empty-state"><div class="icon">🏅</div><h3>No podium finishes yet</h3><p>${name} has not placed 1st, 2nd, or 3rd in any event so far.</p></div>`;
+    return;
+  }
+
+  const { school, gender, age_group } = podiums[0];
+
+  statsEl.innerHTML = `
+    <div class="stat-card gold-border">
+      <div class="stat-label">Gold (1st)</div>
+      <div class="stat-value" style="color:var(--gold)">${gold}</div>
+      <div class="stat-sub">1st place finish${gold !== 1 ? 'es' : ''}</div>
+    </div>
+    <div class="stat-card" style="border-left-color:#9E9E9E">
+      <div class="stat-label">Silver (2nd)</div>
+      <div class="stat-value" style="color:#757575">${silver}</div>
+      <div class="stat-sub">2nd place finish${silver !== 1 ? 'es' : ''}</div>
+    </div>
+    <div class="stat-card" style="border-left-color:#CD7F32">
+      <div class="stat-label">Bronze (3rd)</div>
+      <div class="stat-value" style="color:#CD7F32">${bronze}</div>
+      <div class="stat-sub">3rd place finish${bronze !== 1 ? 'es' : ''}</div>
+    </div>
+    <div class="stat-card blue-border">
+      <div class="stat-label">Total Podiums</div>
+      <div class="stat-value">${podiums.length}</div>
+      <div class="stat-sub">${school} · ${gender} · ${age_group}</div>
+    </div>
+  `;
+
+  const rows = podiums.map(r => {
+    const pl  = parsePlacement(r.placement);
+    const cls = pl === 1 ? 'place-1' : pl === 2 ? 'place-2' : 'place-3';
+    const medal = pl === 1 ? '🥇' : pl === 2 ? '🥈' : '🥉';
+    return `<tr>
+      <td><span class="place-badge ${cls}">${pl}</span></td>
+      <td>${medal} <strong>${r.event_type}</strong></td>
+      <td>${r.gender} ${r.age_group}</td>
+      <td><strong>${r.meet_label}</strong> <span style="color:var(--gray-500);font-size:12px">${r.meet_date}</span></td>
+      <td class="score-cell">${r.score_raw}</td>
+      <td class="pts-cell">${r.points || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  content.innerHTML = `
+    <div class="card">
+      <div class="card-title">All Podium Finishes <span class="badge gold">${podiums.length} total</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Place</th><th>Event</th><th>Division</th><th>Meet</th><th>Score</th><th>Pts</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>
+  `;
+}
+
 // ── Refresh everything for current season ─────────────────────────────────────
 function refreshAllViews() {
   const data = seasonData();
@@ -1037,8 +1142,10 @@ function refreshAllViews() {
 
   populateSchoolSelect('v1-school', data);
   populateSchoolSelect('v2-school', data);
+  populateSchoolSelect('v5-school', data);
   populateStudentSelect('v1-student', data, document.getElementById('v1-school').value);
   populateStudentSelect('v2-student', data, document.getElementById('v2-school').value);
+  populateStudentSelect('v5-student', data, document.getElementById('v5-school').value);
   populateV2Events(document.getElementById('v2-student').value);
   populateEventSelect('v3-event', data);
   populateEventSelect('v4-event', data);
@@ -1049,6 +1156,7 @@ function refreshAllViews() {
   else if (active === 'v2') renderV2();
   else if (active === 'v3') renderV3();
   else if (active === 'v4') renderV4();
+  else if (active === 'v5') renderV5();
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
@@ -1099,6 +1207,12 @@ async function init() {
 
   ['v4-meet','v4-event','v4-agegroup','v4-gender'].forEach(id =>
     document.getElementById(id).addEventListener('change', renderV4));
+
+  document.getElementById('v5-school').addEventListener('change', e => {
+    populateStudentSelect('v5-student', seasonData(), e.target.value);
+    renderV5();
+  });
+  document.getElementById('v5-student').addEventListener('change', renderV5);
 
   refreshAllViews();
 }
