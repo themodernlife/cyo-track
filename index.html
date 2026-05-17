@@ -143,6 +143,30 @@
   }
   select:focus { border-color: var(--red); }
 
+  /* ── Student searchable combobox ── */
+  .student-combobox { position: relative; width: 100%; }
+  .student-combobox-input {
+    padding: 9px 14px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm);
+    font-family: 'Roboto', sans-serif; font-size: 14px; color: var(--gray-900);
+    background: var(--white); outline: none; transition: border-color 0.2s;
+    width: 100%; box-sizing: border-box; cursor: text;
+  }
+  .student-combobox-input:focus { border-color: var(--red); }
+  .student-combobox.open .student-combobox-input { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+  .student-combobox-dropdown {
+    display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
+    background: var(--white); border: 1.5px solid var(--red); border-top: none;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    max-height: 220px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  }
+  .student-combobox.open .student-combobox-dropdown { display: block; }
+  .student-combobox-option {
+    padding: 8px 14px; cursor: pointer; font-size: 14px; font-family: 'Roboto', sans-serif;
+    color: var(--gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .student-combobox-option:hover, .student-combobox-option.highlighted { background: var(--red-light); color: var(--red); }
+  .student-combobox-no-match { padding: 8px 14px; font-size: 13px; color: var(--gray-500); font-style: italic; }
+
   /* ── Card ── */
   .card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; margin-bottom: 20px; }
   .card-title {
@@ -534,6 +558,100 @@ function populateSchoolSelect(selId, data) {
   if (prev) sel.value = prev;
 }
 
+// ── Searchable student combobox ───────────────────────────────────────────────
+const _studentCombos = {};
+
+function initStudentCombobox(selectId) {
+  const sel = document.getElementById(selectId);
+  sel.style.display = 'none';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'student-combobox';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'student-combobox-input';
+  input.placeholder = '— Select student —';
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+
+  const list = document.createElement('div');
+  list.className = 'student-combobox-dropdown';
+
+  wrap.appendChild(input);
+  wrap.appendChild(list);
+  sel.parentNode.insertBefore(wrap, sel.nextSibling);
+
+  let opts = [];
+  let hiIdx = -1;
+
+  function items() { return list.querySelectorAll('.student-combobox-option'); }
+
+  function renderList(q) {
+    const lq = (q || '').toLowerCase();
+    const filtered = lq ? opts.filter(o => o.label.toLowerCase().includes(lq)) : opts;
+    list.innerHTML = '';
+    hiIdx = -1;
+    if (!filtered.length) {
+      const el = document.createElement('div');
+      el.className = 'student-combobox-no-match';
+      el.textContent = opts.length ? 'No matches' : 'No students available';
+      list.appendChild(el);
+    } else {
+      filtered.forEach(o => {
+        const el = document.createElement('div');
+        el.className = 'student-combobox-option';
+        el.textContent = o.label;
+        el.dataset.value = o.value;
+        el.addEventListener('mousedown', ev => { ev.preventDefault(); pick(o.value, o.label); });
+        list.appendChild(el);
+      });
+    }
+  }
+
+  function pick(value, label) {
+    sel.value = value;
+    input.value = label || '';
+    wrap.classList.remove('open');
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function open() { wrap.classList.add('open'); renderList(input.value); }
+  function close() {
+    wrap.classList.remove('open');
+    const cur = opts.find(o => o.value === sel.value);
+    input.value = cur ? cur.label : '';
+  }
+
+  function highlight(dir) {
+    const els = items();
+    hiIdx = Math.max(0, Math.min(hiIdx + dir, els.length - 1));
+    els.forEach((el, i) => el.classList.toggle('highlighted', i === hiIdx));
+    if (els[hiIdx]) els[hiIdx].scrollIntoView({ block: 'nearest' });
+  }
+
+  input.addEventListener('focus', () => { input.select(); open(); });
+  input.addEventListener('input', () => { wrap.classList.add('open'); renderList(input.value); });
+  input.addEventListener('blur', () => setTimeout(close, 150));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); highlight(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); highlight(-1); }
+    else if (e.key === 'Enter') {
+      const el = items()[hiIdx];
+      if (el) pick(el.dataset.value, el.textContent);
+    } else if (e.key === 'Escape') { close(); input.blur(); }
+  });
+
+  _studentCombos[selectId] = {
+    sync() {
+      opts = Array.from(sel.options).filter(o => o.value).map(o => ({ value: o.value, label: o.textContent }));
+      const cur = opts.find(o => o.value === sel.value);
+      input.value = cur ? cur.label : '';
+      input.placeholder = '— Select student —';
+    }
+  };
+}
+
 function populateStudentSelect(selId, data, school) {
   const sel = document.getElementById(selId);
   const prev = sel.value;
@@ -547,6 +665,7 @@ function populateStudentSelect(selId, data, school) {
     sel.appendChild(o);
   });
   if (names.includes(prev)) sel.value = prev;
+  if (_studentCombos[selId]) _studentCombos[selId].sync();
 }
 
 function populateEventSelect(selId, data) {
@@ -1176,6 +1295,10 @@ async function init() {
   SEASONS = [...new Set(ALL_DATA.map(d => d.season))].sort().reverse();
   SEASON  = SEASONS[0];
   buildSeasonButtons();
+
+  initStudentCombobox('v1-student');
+  initStudentCombobox('v2-student');
+  initStudentCombobox('v5-student');
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
