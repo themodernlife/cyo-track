@@ -284,6 +284,7 @@
     <button class="tab-btn" data-view="v3">School Comparison</button>
     <button class="tab-btn" data-view="v4">Meet Results</button>
     <button class="tab-btn" data-view="v5">Podium History</button>
+    <button class="tab-btn" data-view="v6">At a Glance</button>
   </div>
 </div>
 
@@ -435,6 +436,28 @@
     <div id="v5-stats" class="stats-row"></div>
     <div id="v5-content">
       <div class="empty-state"><div class="icon">🏆</div><h3>Select a student above</h3><p>Choose a student to view their podium finishes across all meets.</p></div>
+    </div>
+  </div>
+
+
+  <div class="view" id="v6">
+    <div class="view-header">
+      <h2>At a Glance</h2>
+      <p>See a student's overall meet ranking, points, and highlights across the season.</p>
+    </div>
+    <div class="controls">
+      <div class="control-group" style="min-width:200px">
+        <label>School</label>
+        <select id="v6-school"><option value="">All Schools</option></select>
+      </div>
+      <div class="control-group" style="min-width:280px">
+        <label>Student</label>
+        <select id="v6-student"><option value="">— Select student —</option></select>
+      </div>
+    </div>
+    <div id="v6-stats" class="stats-row"></div>
+    <div id="v6-content">
+      <div class="empty-state"><div class="icon">⚡</div><h3>Select a student above</h3><p>Choose a student to see their season at a glance.</p></div>
     </div>
   </div>
 
@@ -1253,6 +1276,170 @@ function renderV5() {
   `;
 }
 
+// ── View 6: At a Glance ───────────────────────────────────────────────────────
+function renderV6() {
+  const data    = seasonData();
+  const name    = document.getElementById('v6-student').value;
+  const school  = document.getElementById('v6-school').value;
+  const statsEl = document.getElementById('v6-stats');
+  const content = document.getElementById('v6-content');
+  Object.keys(charts).filter(k => k.startsWith('v6c')).forEach(k => destroyChart(k));
+  statsEl.innerHTML = '';
+
+  if (!name) {
+    content.innerHTML = `<div class="empty-state"><div class="icon">⚡</div><h3>Select a student above</h3><p>Choose a student to see their ranking by event across meets.</p></div>`;
+    return;
+  }
+
+  const studentRecs = data.filter(d => d.name === name);
+  if (!studentRecs.length) {
+    content.innerHTML = `<div class="empty-state"><div class="icon">⚡</div><h3>No data found</h3></div>`;
+    return;
+  }
+
+  const { school: studentSchool, gender, age_group } = studentRecs[0];
+  const meetLabels = MEETS_IN_SEASON.map(m => m.label);
+  const events = [...new Set(studentRecs.map(r => r.event_type))].sort();
+
+  // For each event + meet, find the student's placement and how many competitors there were
+  // Rank against same gender + age_group (official heat ranking)
+  function evtMeetInfo(evt, mk) {
+    const myRec = studentRecs.find(r => r.event_type === evt && meetKey(r) === mk);
+    if (!myRec) return null;
+    const pl = parsePlacement(myRec.placement);
+    // Count competitors in same event/division
+    const divRecs = data.filter(r => r.event_type === evt && meetKey(r) === mk &&
+      r.gender === gender && r.age_group === age_group &&
+      (school ? r.school === school : true));
+    const total = [...new Set(divRecs.map(r => r.name))].length;
+    return { pl, total, pts: myRec.points || 0, score: myRec.score_raw };
+  }
+
+  // Summary stats
+  const allEntries = events.flatMap(evt =>
+    meetLabels.map(mk => evtMeetInfo(evt, mk)).filter(Boolean)
+  );
+  const totalPoints = allEntries.reduce((s, e) => s + e.pts, 0);
+  const podiums     = allEntries.filter(e => e.pl <= 3).length;
+  const firsts      = allEntries.filter(e => e.pl === 1).length;
+  const meetsIn     = [...new Set(studentRecs.map(r => meetKey(r)))].length;
+
+  statsEl.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Total Points</div>
+      <div class="stat-value">${totalPoints.toFixed(1)}</div>
+      <div class="stat-sub">${meetsIn} meet${meetsIn !== 1 ? 's' : ''} · ${events.length} event${events.length !== 1 ? 's' : ''}</div>
+    </div>
+    <div class="stat-card gold-border">
+      <div class="stat-label">1st Place Finishes</div>
+      <div class="stat-value" style="color:var(--gold)">${firsts}</div>
+      <div class="stat-sub">${podiums} total podium finish${podiums !== 1 ? 'es' : ''}</div>
+    </div>
+    <div class="stat-card blue-border">
+      <div class="stat-label">Division</div>
+      <div class="stat-value" style="font-size:16px">${age_group}</div>
+      <div class="stat-sub">${gender} · ${studentSchool}</div>
+    </div>
+    <div class="stat-card green-border">
+      <div class="stat-label">Ranked against</div>
+      <div class="stat-value" style="font-size:14px">${school ? school : 'All Schools'}</div>
+      <div class="stat-sub">${gender} · ${age_group}</div>
+    </div>
+  `;
+
+  // Grid table: rows = events, columns = meets
+  const meetHeads = meetLabels.map(ml => `<th>${ml}</th>`).join('');
+  const eventRows = events.map((evt, ei) => {
+    const isTimed = isTimeEvent(evt);
+    const cells = meetLabels.map(mk => {
+      const info = evtMeetInfo(evt, mk);
+      if (!info) return `<td style="color:var(--gray-300);text-align:center">—</td>`;
+      const cls = info.pl === 1 ? 'place-1' : info.pl === 2 ? 'place-2' : info.pl === 3 ? 'place-3' : 'place-other';
+      const tip = `${info.score} · ${info.pts ? info.pts + ' pts' : '—'}`;
+      return `<td style="text-align:center" title="${tip}">
+        <span class="place-badge ${cls}">${info.pl <= 99 ? info.pl : '?'}</span>
+        <div style="font-size:10px;color:var(--gray-500);margin-top:2px">/ ${info.total}</div>
+      </td>`;
+    }).join('');
+
+    // Trend chart per event
+    const cid = `v6c${ei}`;
+    const validPts = meetLabels.map(mk => {
+      const info = evtMeetInfo(evt, mk);
+      return info ? info.pl : null;
+    });
+
+    return { evt, cells, cid, validPts, isTimed };
+  });
+
+  const gridHTML = `
+    <div class="card">
+      <div class="card-title">
+        Ranking by Event Across Meets
+        <span class="badge">${school || 'All Schools'}</span>
+        <span class="badge blue">${gender} · ${age_group}</span>
+      </div>
+      <p style="font-size:12px;color:var(--gray-500);margin-bottom:12px">Each cell shows placement / field size. Hover for score and points.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Event</th>${meetHeads}</tr></thead>
+        <tbody>${eventRows.map(r => `<tr><td><strong>${r.evt}</strong></td>${r.cells}</tr>`).join('')}</tbody>
+      </table></div>
+    </div>
+  `;
+
+  const chartsHTML = eventRows.map(r => `
+    <div class="chart-card">
+      <h3>${r.evt}</h3>
+      <div class="chart-meta">${r.isTimed ? '↓ lower rank = faster' : '↓ lower rank = farther'} · rank over meets</div>
+      <div class="chart-container"><canvas id="${r.cid}"></canvas></div>
+    </div>
+  `).join('');
+
+  content.innerHTML = gridHTML + `<div class="chart-grid">${chartsHTML}</div>`;
+
+  // Render a small rank-over-meets line chart for each event
+  eventRows.forEach((r, ei) => {
+    const color = CHART_COLORS[ei % CHART_COLORS.length];
+    charts[r.cid] = new Chart(document.getElementById(r.cid), {
+      type: 'line',
+      data: {
+        labels: meetLabels,
+        datasets: [{
+          data: r.validPts,
+          borderColor: color, backgroundColor: color + '22', borderWidth: 3,
+          pointRadius: 6, pointHoverRadius: 8, tension: 0.3, spanGaps: false, fill: true,
+          pointBackgroundColor: r.validPts.map(v => v != null && v <= 3 ? GOLD : color),
+          pointBorderColor: color,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const mk = meetLabels[ctx.dataIndex];
+                const info = evtMeetInfo(r.evt, mk);
+                if (!info) return 'Did not compete';
+                return `Place #${info.pl} of ${info.total} · ${info.score}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { grid: { color: '#f0f0f0' }, ticks: { font: { family: 'Jost', size: 10 } } },
+          y: {
+            reverse: true, min: 1,
+            grid: { color: '#f0f0f0' },
+            ticks: { font: { family: 'Roboto', size: 11 }, stepSize: 1, callback: v => '#' + v },
+          },
+        },
+      },
+    });
+  });
+}
+
 // ── Refresh everything for current season ─────────────────────────────────────
 function refreshAllViews() {
   const data = seasonData();
@@ -1262,9 +1449,11 @@ function refreshAllViews() {
   populateSchoolSelect('v1-school', data);
   populateSchoolSelect('v2-school', data);
   populateSchoolSelect('v5-school', data);
+  populateSchoolSelect('v6-school', data);
   populateStudentSelect('v1-student', data, document.getElementById('v1-school').value);
   populateStudentSelect('v2-student', data, document.getElementById('v2-school').value);
   populateStudentSelect('v5-student', data, document.getElementById('v5-school').value);
+  populateStudentSelect('v6-student', data, document.getElementById('v6-school').value);
   populateV2Events(document.getElementById('v2-student').value);
   populateEventSelect('v3-event', data);
   populateEventSelect('v4-event', data);
@@ -1276,6 +1465,7 @@ function refreshAllViews() {
   else if (active === 'v3') renderV3();
   else if (active === 'v4') renderV4();
   else if (active === 'v5') renderV5();
+  else if (active === 'v6') renderV6();
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
@@ -1299,6 +1489,7 @@ async function init() {
   initStudentCombobox('v1-student');
   initStudentCombobox('v2-student');
   initStudentCombobox('v5-student');
+  initStudentCombobox('v6-student');
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1336,6 +1527,12 @@ async function init() {
     renderV5();
   });
   document.getElementById('v5-student').addEventListener('change', renderV5);
+
+  document.getElementById('v6-school').addEventListener('change', e => {
+    populateStudentSelect('v6-student', seasonData(), e.target.value);
+    renderV6();
+  });
+  document.getElementById('v6-student').addEventListener('change', renderV6);
 
   refreshAllViews();
 }
