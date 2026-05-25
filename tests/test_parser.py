@@ -11,7 +11,7 @@ from cyo_track.parser import (
     parse_file,
 )
 
-RESULTS_DIR = Path(__file__).parent.parent / "results" / "2026"
+RESULTS_DIR = Path(__file__).parent.parent / "results"
 R1 = RESULTS_DIR / "r1"
 R2 = RESULTS_DIR / "r2"
 R3 = RESULTS_DIR / "r3"

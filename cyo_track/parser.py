@@ -98,7 +98,7 @@ def _parse_result_line(
     has_heat: bool,
 ) -> Optional[MeetResult]:
     """Parse one fixed-width result line into a MeetResult."""
-    if len(line) < 64:
+    if len(line) < 40:
         return None
     if not _RESULT_LINE_RE.match(line):
         return None
@@ -107,21 +107,33 @@ def _parse_result_line(
     bib_number = line[4:10].strip().lstrip('#').strip()
     name = line[11:29].strip()
     year = line[30:32].strip()
-    school = line[33:63].strip()
 
-    tokens = line[63:].split()
-    if not tokens:
+    # Parse school and score from the rest of the line. Older files pad the
+    # school column to 30 chars so the score starts at position 63; newer files
+    # use a shorter column. Find the first token that looks like a score
+    # (starts with a digit) to split school from score/heat/points.
+    rest_tokens = line[33:].split()
+    score_idx = next(
+        (i for i, t in enumerate(rest_tokens) if _parse_score(t) != (None, None)),
+        None,
+    )
+    if score_idx is None:
         return None
 
-    score_raw = tokens[0]
+    school = ' '.join(rest_tokens[:score_idx])
+    remaining = rest_tokens[score_idx:]
+    if not remaining:
+        return None
+
+    score_raw = remaining[0]
     score_seconds, score_feet = _parse_score(score_raw)
 
     if has_heat:
-        heat_num = tokens[1] if len(tokens) >= 2 else None
-        points_raw = tokens[2] if len(tokens) >= 3 else None
+        heat_num = remaining[1] if len(remaining) >= 2 else None
+        points_raw = remaining[2] if len(remaining) >= 3 else None
     else:
         heat_num = None
-        points_raw = tokens[1] if len(tokens) >= 2 else None
+        points_raw = remaining[1] if len(remaining) >= 2 else None
 
     points = float(points_raw) if points_raw is not None else None
 
