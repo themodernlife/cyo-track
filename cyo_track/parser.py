@@ -52,6 +52,18 @@ class MeetResult:
     has_heat: bool                  # whether this event used heats
 
 
+# ── School name normalization ──────────────────────────────────────────────────
+
+_SCHOOL_ALIASES: dict[str, str] = {
+    "ST STEPHEN": "Stephen",
+    "STEPH": "Stephen",
+}
+
+
+def _normalize_school(name: str) -> str:
+    return _SCHOOL_ALIASES.get(name, name)
+
+
 # ── Parsing helpers ────────────────────────────────────────────────────────────
 
 _EVENT_RE = re.compile(r'^(Girls|Boys)\s+([\w&-]+)\s+(.+)$')
@@ -120,7 +132,7 @@ def _parse_result_line(
     if score_idx is None:
         return None
 
-    school = ' '.join(rest_tokens[:score_idx])
+    school = _normalize_school(' '.join(rest_tokens[:score_idx]))
     remaining = rest_tokens[score_idx:]
     if not remaining:
         return None
