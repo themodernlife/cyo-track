@@ -176,9 +176,33 @@ def parse_file(path: str | Path) -> list[MeetResult]:
     return parse_text(text)
 
 
+def _is_first_last_format(text: str) -> bool:
+    """Return True if result names in this file use 'First Last' rather than 'Last, First'."""
+    names = []
+    for line in text.splitlines():
+        if _RESULT_LINE_RE.match(line) and len(line) >= 40:
+            name = line[11:29].strip()
+            if name:
+                names.append(name)
+        if len(names) >= 20:
+            break
+    return bool(names) and not any(',' in n for n in names)
+
+
+def _normalize_name(name: str, first_last: bool) -> str:
+    """Convert 'First Last' → 'Last, First' when the file uses that order."""
+    if not first_last or ',' in name:
+        return name
+    parts = name.split(None, 1)
+    if len(parts) == 2:
+        return f"{parts[1]}, {parts[0]}"
+    return name
+
+
 def parse_text(text: str) -> list[MeetResult]:
     """Parse HY-TEK results text and return all individual results."""
     results: list[MeetResult] = []
+    first_last = _is_first_last_format(text)
 
     current_event: Optional[str] = None
     gender: Optional[str] = None
@@ -221,6 +245,7 @@ def parse_text(text: str) -> list[MeetResult]:
                 line, current_event, gender, age_group, event_type, has_heat
             )
             if result:
+                result.name = _normalize_name(result.name, first_last)
                 results.append(result)
 
     return results
