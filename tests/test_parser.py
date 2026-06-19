@@ -7,6 +7,8 @@ from cyo_track.parser import (
     MeetResult,
     _parse_score,
     _parse_event_header,
+    _normalize_school,
+    _normalize_student_name,
     parse_text,
     parse_file,
 )
@@ -195,6 +197,33 @@ class TestColumnExtraction:
         assert r.score_feet == pytest.approx(17 + 4 / 12)
         assert r.heat_num == "1"
         assert r.points == 8.0
+
+
+# ── Cross-meet name/school normalization ───────────────────────────────────────
+
+class TestNormalizeSchool:
+    def test_known_alias(self):
+        assert _normalize_school("ST STEPHEN") == "Stephen"
+        assert _normalize_school("STEPH") == "Stephen"
+        assert _normalize_school("EPI") == "Epiphany"
+        assert _normalize_school("EPIPHANY") == "Epiphany"
+        assert _normalize_school("ST BARNABAS") == "BARN"
+        assert _normalize_school("K BARN") == "BARN"
+
+    def test_unknown_school_passes_through(self):
+        assert _normalize_school("SMSG") == "SMSG"
+
+
+class TestNormalizeStudentName:
+    def test_known_typo_alias_scoped_to_school(self):
+        assert _normalize_student_name("Annunciation", "Gilchrist, Ronan") == "Gillchrist, Ronan"
+
+    def test_alias_does_not_apply_to_other_school(self):
+        # Same variant name at an unrelated school must not be rewritten.
+        assert _normalize_student_name("Other School", "Gilchrist, Ronan") == "Gilchrist, Ronan"
+
+    def test_unknown_name_passes_through(self):
+        assert _normalize_student_name("SMSG", "Daiga, Astrid") == "Daiga, Astrid"
 
 
 # ── Full-file parsing ──────────────────────────────────────────────────────────

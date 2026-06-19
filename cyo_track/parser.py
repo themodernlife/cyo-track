@@ -57,11 +57,61 @@ class MeetResult:
 _SCHOOL_ALIASES: dict[str, str] = {
     "ST STEPHEN": "Stephen",
     "STEPH": "Stephen",
+    "EPIPHANY": "Epiphany",
+    "EPI": "Epiphany",
+    "ST BARNABAS": "BARN",
+    "St Barnabas": "BARN",
+    "K BARN": "BARN",
 }
 
 
 def _normalize_school(name: str) -> str:
     return _SCHOOL_ALIASES.get(name, name)
+
+
+# ── Student name normalization ───────────────────────────────────────────────
+#
+# Different meets are scored by different volunteers (and some exports
+# truncate names to 18 characters), so the same student can show up under
+# several spellings across meets, e.g. "DeLuca, Andrew" vs "Deluca, Andrew",
+# or "Sutherland, Peyto" vs "Sutherland, Peyton" (truncated). Pairs below were
+# found by fuzzy-matching names within the same school and manually
+# confirming each pair is the same student (same gender, overlapping/
+# progressing age group, or a clean truncation of the other). Pairs that
+# could plausibly be different siblings (different first names sharing a
+# surname, e.g. "Patterson, Malik" vs "Patterson, Malique") are deliberately
+# excluded.
+#
+# Keyed by (school name AFTER _normalize_school, name AS PARSED) -> canonical.
+_NAME_ALIASES: dict[tuple[str, str], str] = {
+    ("SFDC", "Deluca, Andrew"): "DeLuca, Andrew",
+    ("IONA", "De los Santos, Ty"): "De Los Santos, Ty",
+    ("Epiphany", "Zurl, liam"): "Zurl, Liam",
+    ("Annunciation", "Gilchrist, Ronan"): "Gillchrist, Ronan",
+    ("OL Grace", "Willis, Kourtney"): "Willlis, Kourtney",
+    ("MVP", "Kroczak, Emillia"): "Kroczak, Emilia",
+    ("Epiphany", "Bourjolly, Simone"): "Bourgolly, Simone",
+    ("Sacred Heart - H", "Echezona, Iejoma"): "Echezona, Ijeoma",
+    ("Joseph YORK", "Morales, Matthew"): "Moralis, Matthew",
+    ("IONA", "Atkonson, Miles"): "Atkinson, Miles",
+    ("Epiphany", "Cariaso, Mill"): "Cariaso, Milo",
+    ("SMSG", "Brown II, Sean"): "Brown, Sean",
+    ("Annunciation", "Gallotta, Madelin"): "Gallotta, Maddie",
+    ("SMSG", "Matesic, Valentin"): "Matesic, Valentina",
+    ("SMSG", "Sanchez, Valentin"): "Sanchez, Valentina",
+    ("SFA", "Sutherland, Peyto"): "Sutherland, Peyton",
+    ("Stephen", "Akala, Christophe"): "Akala, Christopher",
+    ("ASD", "Cosentino, Massim"): "Cosentino, Massimo",
+    ("NWP", "Patterson, Malach"): "Patterson, Malachi",
+    ("NDA", "Saporito, Laurett"): "Saporito, Lauretta",
+    ("OLSS", "Otterbeck, Natali"): "Otterbeck, Natalie",
+    ("IS 34", "French, Maddison"): "French, Madison",
+    ("IS 34", "Dadamo, Gianna"): "D'Adamo, Gianna",
+}
+
+
+def _normalize_student_name(school: str, name: str) -> str:
+    return _NAME_ALIASES.get((school, name), name)
 
 
 # ── Parsing helpers ────────────────────────────────────────────────────────────
@@ -246,6 +296,7 @@ def parse_text(text: str) -> list[MeetResult]:
             )
             if result:
                 result.name = _normalize_name(result.name, first_last)
+                result.name = _normalize_student_name(result.school, result.name)
                 results.append(result)
 
     return results
